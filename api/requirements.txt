@@ -1,0 +1,9 @@
+ipykernel
+python-dotenv
+pandas
+pydantic
+fastapi
+uvicorn
+openpyxl
+python-multipart
+identity>=0.5.1,<0.6
