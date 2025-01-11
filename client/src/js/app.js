@@ -1,12 +1,14 @@
 import axios from 'axios';
+import { getApiPath } from './util';
 
 const getMessage = async () => {
   try {
-    const response = await axios.get('/api/hello');
-    setMessage(JSON.stringify(response.data));
+    const endpoint = `${getApiPath('hello')}`;
+    const response = await axios.get(endpoint);
+    return JSON.stringify(response.data);
   } catch (error) {
     console.error('Error fetching message:', error);
-    setMessage('Error loading message');
+    return 'Error loading message';
   }
 };
 
@@ -14,5 +16,8 @@ const setMessage = (message) => {
   document.getElementById('message').innerHTML = message;
 };
 
-// Call getMessage when the page loads
-getMessage();
+const message = (await getMessage());
+
+if (message) {
+  setMessage(message);
+}
