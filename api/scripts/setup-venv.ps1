@@ -4,13 +4,22 @@ Set-Location $projectRoot
 
 Write-Host "Setting up virtual environment in $projectRoot"
 
-# Create virtual environment if it doesn't exist
-if (-not (Test-Path ".venv")) {
-    Write-Host "Creating virtual environment..."
-    python3 -m venv .venv
-} else {
-    Write-Host "Virtual environment already exists"
+# Check if virtual environment exists and prompt for removal
+if (Test-Path ".venv") {
+    $response = Read-Host "Virtual environment already exists. Do you want to remove it? (Y/N)"
+    if ($response.ToUpper() -eq 'Y') {
+        Write-Host "Removing existing virtual environment..."
+        Remove-Item -Recurse -Force .venv
+        Write-Host "Existing virtual environment removed."
+    }
+    else {
+        Write-Host "Script cancelled by user." -ForegroundColor Yellow
+        exit 0
+    }
 }
+
+Write-Host "Creating virtual environment..."
+python3 -m venv .venv
 
 Write-Host "Activating virtual environment..."
 .\.venv\Scripts\Activate.ps1
@@ -19,7 +28,8 @@ Write-Host "Activating virtual environment..."
 if (Test-Path "requirements.txt") {
     Write-Host "Installing dependencies from requirements.txt..."
     python -m pip install -r requirements.txt
-} else {
+}
+else {
     Write-Host "Error: requirements.txt not found in $projectRoot" -ForegroundColor Red
     exit 1
 }

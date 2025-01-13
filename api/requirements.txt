@@ -7,3 +7,5 @@ uvicorn
 openpyxl
 python-multipart
 identity>=0.5.1,<0.6
+itsdangerous
+azure-identity
