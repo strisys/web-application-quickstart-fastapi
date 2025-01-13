@@ -144,7 +144,7 @@ def logout(request: Request):
 def auth_response(request: Request):
     return identity_manager.complete_log_in(request)
 
-async def auth_middleware(request: Request, call_next):   
+async def authenticate(request: Request, call_next):   
     public_paths = ["/login", "/signin", "/logout"]
     
     if any(request.url.path.startswith(path) for path in public_paths):

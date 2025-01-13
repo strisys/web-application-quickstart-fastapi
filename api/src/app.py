@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
-from src.identity_util import router, auth_middleware, AuthSessionMiddleware
+from src.identity_util import router, authenticate, AuthSessionMiddleware
 from dotenv import load_dotenv
 import secrets
 
@@ -22,12 +22,11 @@ SKIP_ROUTES = ("api/")
 
 app = FastAPI()
 
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
-app.add_middleware(BaseHTTPMiddleware, dispatch=auth_middleware)
+app.add_middleware(BaseHTTPMiddleware, dispatch=authenticate)
 app.add_middleware(AuthSessionMiddleware)
 app.include_router(router)
 app.add_middleware(SessionMiddleware, secret_key=session_secret, same_site="lax", max_age=(3600 * 24), https_only=False, session_cookie="quickstart-fastapi-session")
-
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 # Static file serving
 app.mount("/js", StaticFiles(directory=PUBLIC_DIR / "js"), name="js")
