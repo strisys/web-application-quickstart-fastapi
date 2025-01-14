@@ -1,13 +1,14 @@
-import os, logging, json, uuid, threading
+import os, logging, json, uuid, threading, socket, secrets
 from typing import Optional
 from urllib.parse import urlencode
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from pathlib import Path
 import identity.web
-from fastapi import Request, HTTPException, APIRouter
-from fastapi.responses import RedirectResponse
+from fastapi import FastAPI, Request, HTTPException, APIRouter
+from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
 current_dir = Path(__file__).resolve().parent
 dotenv_path = current_dir / '.env'
@@ -17,6 +18,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 logging.getLogger('msal').setLevel(logging.DEBUG)
 
+SESSION_COOKIE_NAME = 'quickstart-fastapi-session-auth'  
 router = APIRouter()
 
 class InMemorySessionStore:
@@ -25,13 +27,16 @@ class InMemorySessionStore:
         self._lock = threading.Lock()
         self._last_cleanup = datetime.utcnow()
 
-    def get(self, session_id: str) -> dict:
+    def get(self, session_id: str) -> tuple[dict, str, bool]:
+        session_id = session_id or str(uuid.uuid4())
+        is_new = False
+
         with self._lock:
             if (not self.exists(session_id)):
-                session_id = str(uuid.uuid4())
                 self._sessions[session_id] = {}
+                is_new = True
 
-            return self._sessions.get(session_id, {})
+            return (self._sessions[session_id], session_id, is_new)
 
     def exists(self, session_id: str) -> bool:
         return (self._sessions.get(session_id, None) is not None)
@@ -65,17 +70,18 @@ class AuthSessionMiddleware(BaseHTTPMiddleware):
         self.session_store = InMemorySessionStore()
 
     async def dispatch(self, request, call_next):
-        session_id = (request.session.get(AuthSessionMiddleware.AUTH_SESSION_KEY) or '')
-        auth_session = self.session_store.get(session_id)
+        passed_session_id = (request.session.get(AuthSessionMiddleware.AUTH_SESSION_KEY) or '')
+        auth_session, session_id, _ = self.session_store.get(passed_session_id)
+        request.session[AuthSessionMiddleware.AUTH_SESSION_KEY] = session_id
 
         request.state.auth_session = auth_session
         original_session = request.state.auth_session.copy()
         
         response = await call_next(request)
 
-        if request.state.auth_session != original_session:
+        if (request.state.auth_session != original_session):
             self.session_store.set(session_id, request.state.auth_session)
-        
+                    
         return response
     
 class IdentityConfig:
@@ -101,13 +107,14 @@ class IdentityManager:
 
         inner = self.get_inner(request)
         result = inner.log_in(scopes=self.config.scopes, redirect_uri=self.config.redirect_uri)
+        auth_uri = result["auth_uri"]
 
         if not "auth_uri" in result:
             logger.info("Failed to create redirect url to log user in")
             raise HTTPException(status_code=500, detail="Failed to initialize login flow")
         
-        logger.info("Redirect url to log user in created")
-        return RedirectResponse(url=result["auth_uri"])
+        logger.info(f"Redirect url to log user in created {auth_uri}")
+        return RedirectResponse(url=auth_uri)
 
     def log_out(self, request: Request):
         # self.get_inner(request).log_out(self.config.redirect_uri)
@@ -122,7 +129,7 @@ class IdentityManager:
 
         if (len(result) == 0):
             logger.info("Failed to exchange authorization code for token")
-            raise HTTPException(status_code=401, detail=result)
+            raise HTTPException(status_code=401, detail='failed to exchange authorization code for token')
         
         logger.info("Authorization cide exchanged for token successfully!")
         return RedirectResponse(url="/", status_code=302)
@@ -157,3 +164,38 @@ async def authenticate(request: Request, call_next):
         return RedirectResponse(url="/login", status_code=302)
     
     return await call_next(request)
+
+def is_cloud_environment():
+    hostname = socket.gethostname()
+    # Cloud providers often have distinctive hostname patterns
+    cloud_patterns = [
+        'compute.internal',  # AWS EC2
+        'cloudapp.net',      # Azure
+        'appspot.com',       # Google Cloud
+        'herokuapp.com'      # Heroku
+    ]
+    
+    return any(pattern in hostname.lower() for pattern in cloud_patterns)
+
+def configure_pipeline(app: FastAPI) -> FastAPI:
+    app.add_middleware(BaseHTTPMiddleware, dispatch=authenticate)
+    app.add_middleware(AuthSessionMiddleware)
+    app.include_router(router)
+
+    is_cloud = is_cloud_environment()
+    secret = os.getenv("SESSION_SECRET", SESSION_COOKIE_NAME)
+
+    cookie_args = {
+        'path': "/",
+        'domain': None,
+        'secret_key': secret,
+        'https_only': is_cloud,
+        'same_site': "lax", 
+        'max_age': (3600 * 24),
+        'session_cookie': SESSION_COOKIE_NAME,
+    }
+
+    logger.info(f"Configuring session middleware with: \n{cookie_args}")
+    app.add_middleware(SessionMiddleware, **cookie_args)
+
+    return app

@@ -6,15 +6,15 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
-from src.identity_util import router, authenticate, AuthSessionMiddleware
+from src.identity_util import configure_pipeline
 from dotenv import load_dotenv
 import secrets
-
 import logging
 
 load_dotenv()
+
 logging.basicConfig(level=logging.DEBUG)
-session_secret = os.getenv("SESSION_SECRET", 'thequickbrowndogjumpsoverthelazyfox')
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 PUBLIC_DIR = BASE_DIR / "public"
@@ -22,10 +22,7 @@ SKIP_ROUTES = ("api/")
 
 app = FastAPI()
 
-app.add_middleware(BaseHTTPMiddleware, dispatch=authenticate)
-app.add_middleware(AuthSessionMiddleware)
-app.include_router(router)
-app.add_middleware(SessionMiddleware, secret_key=session_secret, same_site="lax", max_age=(3600 * 24), https_only=False, session_cookie="quickstart-fastapi-session")
+configure_pipeline(app)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 # Static file serving
@@ -41,6 +38,10 @@ async def serve_manifest():
 async def serve_favicon():
     return FileResponse(PUBLIC_DIR / "favicon.ico")
 
+@app.get("/robots.txt")
+async def serve_robots():
+    return FileResponse(PUBLIC_DIR / "robots.txt")
+
 @app.get("/api/hello")
 async def get():
     return JSONResponse({"message": "Hello World"})
@@ -48,6 +49,19 @@ async def get():
 @app.get("/api/protected")
 async def protected_route(request: Request):
     return {"message": "This is a protected route"}
+
+@app.get("/debug-session")
+async def debug_session(request: Request):
+    request.session["test"] = "hello"
+    
+    # Log everything
+    logger.info(f"Cookies present: {request.cookies}")
+    logger.info(f"Session data: {dict(request.session)}")
+    logger.info(f"Headers: {dict(request.headers)}")
+    
+    return {"message": "Session test"}
+
+
 
 # Catch-all route for SPA - must be last
 @app.get("/{full_path:path}")
