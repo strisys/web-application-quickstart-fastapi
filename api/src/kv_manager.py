@@ -60,7 +60,7 @@ class KeyVaultUtility:
                 env_var_name = f"{prefix}{secret_name}".upper()
                 
                 if os.getenv(env_var_name) is not None:
-                    logger.info(f"Environment variable already exists: {env_var_name}")
+                    logger.info(f"Environment variable already exists as environment variable: {env_var_name}")
                     results[secret_name] = False
                     continue
                 
@@ -70,11 +70,11 @@ class KeyVaultUtility:
                     os.environ[env_var_name] = secret_value
                     logger.info(f"Loaded secret into environment variable: {env_var_name}")
                     results[secret_name] = True
-                else:
-                    results[secret_name] = False
+                    continue
+
+                results[secret_name] = False
             
-            loaded_count = sum(1 for loaded in results.values() if loaded)
-            logger.info(f"Successfully loaded {loaded_count} new secrets into environment variables")
+            logger.info(f"Successfully loaded secrets into environment variables: {','.join([name for name, loaded in results.items() if loaded])}")
 
             return results
             
