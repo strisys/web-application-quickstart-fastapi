@@ -1,14 +1,14 @@
-import os, logging, json, uuid, threading, socket, secrets
+import os, logging, uuid, threading, socket
 from typing import Optional
-from urllib.parse import urlencode
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from pathlib import Path
 import identity.web
 from fastapi import FastAPI, Request, HTTPException, APIRouter
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from src.kv_manager import KeyVaultUtility
 
 current_dir = Path(__file__).resolve().parent
 dotenv_path = current_dir / '.env'
@@ -17,6 +17,8 @@ load_dotenv(dotenv_path)
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 logging.getLogger('msal').setLevel(logging.DEBUG)
+
+KeyVaultUtility().load_secrets_to_env()
 
 SESSION_COOKIE_NAME = 'quickstart-fastapi-session-auth'  
 router = APIRouter()

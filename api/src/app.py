@@ -1,14 +1,10 @@
-import os
-from fastapi import FastAPI, Query, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
 from src.identity_util import configure_pipeline
 from dotenv import load_dotenv
-import secrets
 import logging
 
 load_dotenv()
@@ -30,9 +26,9 @@ app.mount("/js", StaticFiles(directory=PUBLIC_DIR / "js"), name="js")
 app.mount("/css", StaticFiles(directory=PUBLIC_DIR / "css"), name="css")
 app.mount("/public", StaticFiles(directory=PUBLIC_DIR), name="public")
 
-@app.get("/manifest.json")
+@app.get("/site.webmanifest")
 async def serve_manifest():
-    return FileResponse(PUBLIC_DIR / "manifest.json")
+    return FileResponse(PUBLIC_DIR / "site.webmanifest")
 
 @app.get("/favicon.ico")
 async def serve_favicon():
@@ -49,19 +45,6 @@ async def get():
 @app.get("/api/protected")
 async def protected_route(request: Request):
     return {"message": "This is a protected route"}
-
-@app.get("/debug-session")
-async def debug_session(request: Request):
-    request.session["test"] = "hello"
-    
-    # Log everything
-    logger.info(f"Cookies present: {request.cookies}")
-    logger.info(f"Session data: {dict(request.session)}")
-    logger.info(f"Headers: {dict(request.headers)}")
-    
-    return {"message": "Session test"}
-
-
 
 # Catch-all route for SPA - must be last
 @app.get("/{full_path:path}")

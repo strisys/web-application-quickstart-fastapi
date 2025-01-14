@@ -8,4 +8,5 @@ openpyxl
 python-multipart
 identity>=0.5.1,<0.6
 itsdangerous
-azure-identity
+azure-identity>=1.15.0
+azure-keyvault-secrets>=4.7.0
