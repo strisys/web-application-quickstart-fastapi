@@ -1,5 +1,5 @@
 import os, logging
-from azure.identity import DefaultAzureCredential, ChainedTokenCredential
+from azure.identity import DefaultAzureCredential, ChainedTokenCredential, AzureCliCredential, EnvironmentCredential, ManagedIdentityCredential
 from azure.keyvault.secrets import SecretClient
 from typing import Optional
 from pathlib import Path
@@ -13,15 +13,18 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 class KeyVaultUtility:    
-    def __init__(self, vault_name: Optional[str] = None, credential: Optional[ChainedTokenCredential] = DefaultAzureCredential()):
+    def __init__(self, vault_name: Optional[str] = None, credential: Optional[ChainedTokenCredential] = None):
         try:
+            if (not credential):
+                credential = ChainedTokenCredential(AzureCliCredential(), EnvironmentCredential(), ManagedIdentityCredential())
+
             vault_name = (vault_name or os.getenv("KEY_VAULT_NAME", None))
 
             if (not vault_name):
                 raise Exception("Vault name not provided through argument or environment variable KEY_VAULT_NAME")
 
             vault_url = f"https://{vault_name}.vault.azure.net/"
-            self.credential = credential or DefaultAzureCredential()
+            self.credential = credential
             self.client = SecretClient(vault_url=vault_url, credential=self.credential)
         except Exception as e:
             logger.error(f"Failed to initialize Key Vault client ({vault_url}): {str(e)}")
@@ -46,8 +49,6 @@ class KeyVaultUtility:
 
     def load_secrets_to_env(self, prefix: str = "") -> dict[str, bool]:
         try:
-            value = self.try_get_secret("TEST")
-
             secrets = self.client.list_properties_of_secrets()
             results = {}
             
