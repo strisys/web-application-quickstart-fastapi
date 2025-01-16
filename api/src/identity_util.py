@@ -16,9 +16,16 @@ load_dotenv(dotenv_path)
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-logging.getLogger('msal').setLevel(logging.DEBUG)
 
-KeyVaultUtility().load_secrets_to_env()
+msal_debugging = (os.getenv("MSAL_DEBUGGING", "false").lower() == "true")
+logging.getLogger('msal').setLevel(logging.DEBUG if msal_debugging else logging.INFO)
+
+secret_mapping={ "AZURE-CLIENT-ID": "AZURE_CLIENT_ID",  "AZURE-CLIENT-SECRET": "AZURE_CLIENT_SECRET",  "AZURE-TENANT-ID": "AZURE_TENANT_ID" }
+KeyVaultUtility().load_secrets_to_env(secret_mapping=secret_mapping)
+
+assert os.environ.get("AZURE_CLIENT_ID"), "AZURE_CLIENT_ID not found in environment variables"
+assert os.environ.get("AZURE_CLIENT_SECRET"), "AZURE_CLIENT_SECRET not found in environment variables"
+assert os.environ.get("AZURE_TENANT_ID"), "AZURE_TENANT_ID not found in environment variables"
 
 SESSION_COOKIE_NAME = 'quickstart-fastapi-session-auth'  
 router = APIRouter()

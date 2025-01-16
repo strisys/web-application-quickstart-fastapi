@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 class KeyVaultUtility:    
-    def __init__(self, vault_name: Optional[str] = None, credential: Optional[ChainedTokenCredential] = None):
+    def init(self, vault_name: Optional[str] = None, credential: Optional[ChainedTokenCredential] = None):
         try:
             if (not credential):
                 credential = ChainedTokenCredential(AzureCliCredential(), EnvironmentCredential(), ManagedIdentityCredential())
@@ -37,7 +37,7 @@ class KeyVaultUtility:
         except Exception as e:
             logger.error(f"Failed to retrieve secret {secret_name}: {str(e)}")
             return None
-        
+
     def get_secret(self, secret_name: str, version: Optional[str] = None) -> Optional[str]:
         secret = self.try_get_secret(secret_name, version)
 
@@ -45,44 +45,38 @@ class KeyVaultUtility:
             raise Exception(f"Failed to retrieve secret {secret_name}")
 
         return secret
-    
 
-    def load_secrets_to_env(self, prefix: str = "") -> dict[str, bool]:
+    def load_secrets_to_env(self, prefix: str = "", secret_mapping: dict[str, str] = {}) -> dict[str, bool]:
         try:
             secrets = self.client.list_properties_of_secrets()
             results = {}
-            
+
             for secret_properties in secrets:
                 secret_name = secret_properties.name
 
                 if (not secret_name):
                     continue
 
-                env_var_name = f"{prefix}{secret_name}".upper()
-                
+                results[secret_name] = False
+                env_var_name = secret_mapping.get(secret_name, secret_name)
+                env_var_name = f"{prefix}{env_var_name}".upper()
+
                 if os.getenv(env_var_name) is not None:
                     logger.info(f"Environment variable already exists as environment variable: {env_var_name}")
-                    results[secret_name] = False
+
                     continue
-                
+
                 secret_value = self.try_get_secret(secret_name)
 
                 if secret_value is not None:
                     os.environ[env_var_name] = secret_value
+                    assert os.environ.get(env_var_name) == secret_value
                     logger.info(f"Loaded secret into environment variable: {env_var_name}")
                     results[secret_name] = True
-                    continue
 
-                results[secret_name] = False
-            
             logger.info(f"Successfully loaded secrets into environment variables: {','.join([name for name, loaded in results.items() if loaded])}")
 
-            return results
-            
+            return results    
         except Exception as e:
             logger.error(f"Error loading secrets into environment: {str(e)}")
             return {}
-        
-if __name__ == "__main__":   
-    secret_value = KeyVaultUtility().get_secret("DatabasePassword")
-    print(secret_value)
