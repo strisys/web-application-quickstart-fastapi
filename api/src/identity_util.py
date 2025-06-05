@@ -1,4 +1,4 @@
-import os, logging, uuid, threading, socket
+import os, logging, uuid, threading
 from typing import Optional
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -140,7 +140,7 @@ class IdentityManager:
             logger.info("Failed to exchange authorization code for token")
             raise HTTPException(status_code=401, detail='failed to exchange authorization code for token')
         
-        logger.info("Authorization cide exchanged for token successfully!")
+        logger.info("Authorization code exchanged for token successfully!")
         return RedirectResponse(url="/", status_code=302)
     
     def get_user(self, request: Request):
@@ -174,17 +174,13 @@ async def authenticate(request: Request, call_next):
     
     return await call_next(request)
 
-def is_cloud_environment():
-    hostname = socket.gethostname()
-    # Cloud providers often have distinctive hostname patterns
-    cloud_patterns = [
-        'compute.internal',  # AWS EC2
-        'cloudapp.net',      # Azure
-        'appspot.com',       # Google Cloud
-        'herokuapp.com'      # Heroku
-    ]
-    
-    return any(pattern in hostname.lower() for pattern in cloud_patterns)
+def is_cloud_environment() -> bool:
+    val = os.getenv("IS_CLOUD_ENVIRONMENT", '')
+
+    if (not val):
+        raise ValueError("IS_CLOUD_ENVIRONMENT not set in environment variables")
+
+    return (val.lower() == "true")
 
 def configure_pipeline(app: FastAPI) -> FastAPI:
     app.add_middleware(BaseHTTPMiddleware, dispatch=authenticate)
