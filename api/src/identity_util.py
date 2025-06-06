@@ -24,15 +24,21 @@ load_dotenv(dotenv_path)
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-msal_debugging = (os.getenv("MSAL_DEBUGGING", "false").lower() == "true")
+AZURE_CLIENT_ID = "AZURE_CLIENT_ID"
+AZURE_CLIENT_SECRET = "AZURE_CLIENT_SECRET"
+AZURE_TENANT_ID = "AZURE_TENANT_ID"
+AZURE_REDIRECT_URI = "AZURE_REDIRECT_URI"
+MSAL_DEBUGGING = "MSAL_DEBUGGING"
+
+msal_debugging = (os.getenv(MSAL_DEBUGGING, "false").lower() == "true")
 logging.getLogger('msal').setLevel(logging.DEBUG if msal_debugging else logging.INFO)
 
-secret_mapping={"AZURE-CLIENT-ID": "AZURE_CLIENT_ID", "AZURE-CLIENT-SECRET": "AZURE_CLIENT_SECRET", "AZURE-TENANT-ID": "AZURE_TENANT_ID"}
+secret_mapping={"AZURE-CLIENT-ID": AZURE_CLIENT_ID, "AZURE-CLIENT-SECRET": AZURE_CLIENT_SECRET, "AZURE-TENANT-ID": AZURE_TENANT_ID}
 KeyVaultUtility().load_secrets_to_env(secret_mapping=secret_mapping)
 
-assert os.environ.get("AZURE_CLIENT_ID"), "AZURE_CLIENT_ID not found in environment variables"
-assert os.environ.get("AZURE_CLIENT_SECRET"), "AZURE_CLIENT_SECRET not found in environment variables"
-assert os.environ.get("AZURE_TENANT_ID"), "AZURE_TENANT_ID not found in environment variables"
+assert os.environ.get(AZURE_CLIENT_ID), f"{AZURE_CLIENT_ID} not found in environment variables"
+assert os.environ.get(AZURE_CLIENT_SECRET), f"{AZURE_CLIENT_SECRET} not found in environment variables"
+assert os.environ.get(AZURE_TENANT_ID), f"{AZURE_TENANT_ID} not found in environment variables"
 
 SESSION_COOKIE_NAME = 'quickstart-fastapi-session-auth'
 router = APIRouter()
@@ -93,10 +99,10 @@ class AuthSessionMiddleware(BaseHTTPMiddleware):
 
 class IdentityConfig:
     def __init__(self):
-        self.client_id = os.environ.get("AZURE_CLIENT_ID")
-        self.client_credential = os.environ.get("AZURE_CLIENT_SECRET")
-        self.authority = f"https://login.microsoftonline.com/{os.environ.get('AZURE_TENANT_ID')}"
-        self.redirect_uri = os.environ.get("AZURE_REDIRECT_URI")
+        self.client_id = os.environ.get(AZURE_CLIENT_ID)
+        self.client_credential = os.environ.get(AZURE_CLIENT_SECRET)
+        self.authority = f"https://login.microsoftonline.com/{os.environ.get(AZURE_TENANT_ID)}"
+        self.redirect_uri = os.environ.get(AZURE_REDIRECT_URI)
         self.scopes = ["https://graph.microsoft.com/.default"]
         if (not self.client_id or not self.client_credential or not self.authority or not self.redirect_uri):
             raise ValueError("Missing required identity config environment variables")
@@ -133,8 +139,8 @@ identity_manager = IdentityManager()
 
 def validate_bearer_token(token: str) -> Optional[dict]:
     try:
-        tenant_id = os.getenv("AZURE_TENANT_ID")
-        client_id = os.getenv("AZURE_CLIENT_ID")
+        tenant_id = os.getenv(AZURE_TENANT_ID)
+        client_id = os.getenv(AZURE_CLIENT_ID)
         audience = f"api://{client_id}"        
         jwks_url = f"https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys"
 
